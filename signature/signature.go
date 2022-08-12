@@ -34,6 +34,8 @@ type KeyringPair struct {
 	Address string
 	// PublicKey
 	PublicKey []byte
+	// KeyPair
+	Kry subkey.KeyPair
 }
 
 // KeyringPairFromSecret creates KeyPair based on seed/phrase and network
@@ -56,7 +58,13 @@ func KeyringPairFromSecret(seedOrPhrase string, network uint8) (KeyringPair, err
 		URI:       seedOrPhrase,
 		Address:   ss58Address,
 		PublicKey: pk,
+		Kry:       kyr,
 	}, nil
+}
+
+func init() {
+	AlicePair, _ := sr25519.Scheme{}.FromPhrase("//Alice", "")
+	TestKeyringPairAlice.Kry = AlicePair
 }
 
 var TestKeyringPairAlice = KeyringPair{
@@ -67,20 +75,14 @@ var TestKeyringPairAlice = KeyringPair{
 
 // Sign signs data with the private key under the given derivation path, returning the signature. Requires the subkey
 // command to be in path
-func Sign(data []byte, privateKeyURI string) ([]byte, error) {
+func (kp *KeyringPair) Sign(data []byte) ([]byte, error) {
 	// if data is longer than 256 bytes, hash it first
 	if len(data) > 256 {
 		h := blake2b.Sum256(data)
 		data = h[:]
 	}
 
-	scheme := sr25519.Scheme{}
-	kyr, err := subkey.DeriveKeyPair(scheme, privateKeyURI)
-	if err != nil {
-		return nil, err
-	}
-
-	signature, err := kyr.Sign(data)
+	signature, err := kp.Kry.Sign(data)
 	if err != nil {
 		return nil, err
 	}
@@ -90,24 +92,18 @@ func Sign(data []byte, privateKeyURI string) ([]byte, error) {
 
 // Verify verifies data using the provided signature and the key under the derivation path. Requires the subkey
 // command to be in path
-func Verify(data []byte, sig []byte, privateKeyURI string) (bool, error) {
+func (kp *KeyringPair) Verify(data []byte, sig []byte) (bool, error) {
 	// if data is longer than 256 bytes, hash it first
 	if len(data) > 256 {
 		h := blake2b.Sum256(data)
 		data = h[:]
 	}
 
-	scheme := sr25519.Scheme{}
-	kyr, err := subkey.DeriveKeyPair(scheme, privateKeyURI)
-	if err != nil {
-		return false, err
-	}
-
 	if len(sig) != 64 {
 		return false, errors.New("wrong signature length")
 	}
 
-	v := kyr.Verify(data, sig)
+	v := kp.Kry.Verify(data, sig)
 
 	return v, nil
 }
