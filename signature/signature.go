@@ -35,42 +35,39 @@ type KeyringPair struct {
 	// PublicKey
 	PublicKey []byte
 	// KeyPair
-	Kry subkey.KeyPair
+	KeyPair subkey.KeyPair
 }
 
 // KeyringPairFromSecret creates KeyPair based on seed/phrase and network
 // Leave network empty for default behavior
 func KeyringPairFromSecret(seedOrPhrase string, network uint8) (KeyringPair, error) {
 	scheme := sr25519.Scheme{}
-	kyr, err := subkey.DeriveKeyPair(scheme, seedOrPhrase)
+	keyPair, err := subkey.DeriveKeyPair(scheme, seedOrPhrase)
 	if err != nil {
 		return KeyringPair{}, err
 	}
 
-	ss58Address, err := kyr.SS58Address(network)
+	ss58Address, err := keyPair.SS58Address(network)
 	if err != nil {
 		return KeyringPair{}, err
 	}
 
-	var pk = kyr.Public()
+	var pk = keyPair.Public()
 
 	return KeyringPair{
 		URI:       seedOrPhrase,
 		Address:   ss58Address,
 		PublicKey: pk,
-		Kry:       kyr,
+		KeyPair:   keyPair,
 	}, nil
 }
 
-func init() {
-	AlicePair, _ := sr25519.Scheme{}.FromPhrase("//Alice", "")
-	TestKeyringPairAlice.Kry = AlicePair
-}
-
+var alicePair, _ = sr25519.Scheme{}.FromPhrase("//Alice", "")
 var TestKeyringPairAlice = KeyringPair{
 	URI:       "//Alice",
 	PublicKey: []byte{0xd4, 0x35, 0x93, 0xc7, 0x15, 0xfd, 0xd3, 0x1c, 0x61, 0x14, 0x1a, 0xbd, 0x4, 0xa9, 0x9f, 0xd6, 0x82, 0x2c, 0x85, 0x58, 0x85, 0x4c, 0xcd, 0xe3, 0x9a, 0x56, 0x84, 0xe7, 0xa5, 0x6d, 0xa2, 0x7d}, //nolint:lll
 	Address:   "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+	KeyPair:   alicePair,
 }
 
 // Sign signs data with the private key under the given derivation path, returning the signature. Requires the subkey
@@ -82,7 +79,7 @@ func (kp *KeyringPair) Sign(data []byte) ([]byte, error) {
 		data = h[:]
 	}
 
-	signature, err := kp.Kry.Sign(data)
+	signature, err := kp.KeyPair.Sign(data)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +100,7 @@ func (kp *KeyringPair) Verify(data []byte, sig []byte) (bool, error) {
 		return false, errors.New("wrong signature length")
 	}
 
-	v := kp.Kry.Verify(data, sig)
+	v := kp.KeyPair.Verify(data, sig)
 
 	return v, nil
 }
